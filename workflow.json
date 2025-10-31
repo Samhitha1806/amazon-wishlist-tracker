@@ -1,0 +1,969 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d632ac7f-e416-4b1d-b242-5d4b0c2ac400",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://app.scrapingbee.com/api/v1/?api_key=DPIAYJ6WU1QDL1CEZZSM9D9CK3YLJSK93J1HR0E778CEK8M5Q10MS4MKBC7012IBY9PP482TIRXU548E&url=https://www.amazon.in/hz/wishlist/ls/MXIV6JNPWUD1?ref_=list_d_wl_lfu_nav_1",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        208,
+        0
+      ],
+      "id": "b8dbf01a-2684-44a4-8cfa-31778d4fb090",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "All_Titles",
+              "cssSelector": "a.a-link-normal",
+              "returnArray": true
+            },
+            {
+              "key": "All_Links",
+              "cssSelector": "a.a-link-normal",
+              "returnValue": "attribute",
+              "attribute": "href",
+              "returnArray": true
+            },
+            {
+              "key": "All_Prices",
+              "cssSelector": ".a-price-whole",
+              "returnArray": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        0
+      ],
+      "id": "0d524d72-4604-43d5-9118-56a3ca558948",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst htmlData = items[0].json;\n\nconst titles = htmlData.All_Titles || [];\nconst links = htmlData.All_Links || [];\nconst prices = htmlData.All_Prices || [];\n\nconsole.log('Titles:', titles.length);\nconsole.log('Links:', links.length);  \nconsole.log('Prices:', prices.length);\nconsole.log('Price values:', prices);\n\nconst results = [];\n\n// Try to match prices with products\nfor (let i = 0; i < prices.length; i++) {\n    // Find a matching title/link that has a product ASIN\n    for (let j = 0; j < links.length; j++) {\n        const link = String(links[j] || '');\n        const title = String(titles[j] || '');\n        \n        if (link.includes('/dp/')) {\n            const asinMatch = link.match(/\\/dp\\/([A-Z0-9]{10})/);\n            if (asinMatch) {\n                const priceStr = String(prices[i]).replace(/,/g, '').replace(/\\./g, '');\n                const priceNum = parseInt(priceStr) || 0;\n                \n                results.push({\n                    json: {\n                        Title: title,\n                        Link: link.startsWith('http') ? link : 'https://www.amazon.in' + link,\n                        Price: priceNum,\n                        ASIN: asinMatch[1]\n                    }\n                });\n                break; // Move to next price\n            }\n        }\n    }\n}\n\nconsole.log('Results:', results.length);\nreturn results;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        608,
+        0
+      ],
+      "id": "166478b0-1c06-4210-99bc-be8957fe5f8a",
+      "name": "Code in JavaScript",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q",
+          "mode": "list",
+          "cachedResultName": "Wishlist Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit#gid=0"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        816,
+        0
+      ],
+      "id": "f4cd0390-8257-4a62-bec8-fe265881582d",
+      "name": "Get row(s) in sheet",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Y5BPKRHEnHDqm6oX",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "1cc4f48b-0da3-44a4-a20b-02d4eaef427e",
+              "leftValue": "={{ $('Get row(s) in sheet').item.json.ASIN }}",
+              "rightValue": "0",
+              "operator": {
+                "type": "string",
+                "operation": "empty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1024,
+        0
+      ],
+      "id": "3bb941f8-13cf-4174-893a-727ef6877069",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get the cleaned product data from Node 4\nconst products = $('Code in JavaScript').all();\n\n// Rename fields to match Google Sheet headers\nreturn products.map(item => ({\n    json: {\n        Product_Name: item.json.Title,\n        Product_Link: item.json.Link,\n        ASIN: item.json.ASIN,\n        Original_Price: item.json.Price,\n        Current_Price: item.json.Price,\n        Previous_Price: item.json.Price,\n        Price_Drop_Percent: 0,\n        Check_Date: new Date().toISOString().split('T')[0],\n        Check_Time: new Date().toTimeString().split(' ')[0],\n        Price_History: item.json.Price,\n        Notes: 'Initial load'\n    }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        -80
+      ],
+      "id": "3aafcdf0-3f3e-4044-b6f0-6c5c97ab5747",
+      "name": "Code in JavaScript1"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q",
+          "mode": "list",
+          "cachedResultName": "Wishlist Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "ASIN"
+          ],
+          "schema": [
+            {
+              "id": "Product_Name",
+              "displayName": "Product_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product_Link",
+              "displayName": "Product_Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "ASIN",
+              "displayName": "ASIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Original_Price",
+              "displayName": "Original_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current_Price",
+              "displayName": "Current_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Previous_Price",
+              "displayName": "Previous_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_Drop_Percent",
+              "displayName": "Price_Drop_Percent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check_Date",
+              "displayName": "Check_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check_Time",
+              "displayName": "Check_Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_History",
+              "displayName": "Price_History",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Price",
+              "displayName": "Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1440,
+        -80
+      ],
+      "id": "8ba9f6c5-4f1f-4580-a83c-af8cc52db2e1",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Y5BPKRHEnHDqm6oX",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get current products from Node 4\nconst currentProducts = $('Code in JavaScript').all();\n\n// Get previous data from Google Sheets\nconst previousData = $('Get row(s) in sheet').all();\n\nconsole.log('Current products:', currentProducts.length);\nconsole.log('Previous data:', previousData.length);\n\nconst priceDrops = [];\nconst updates = [];\n\n// Compare prices\nfor (const current of currentProducts) {\n    const currentData = current.json;\n    \n    // Find matching product in sheet by ASIN\n    const previous = previousData.find(p => p.json.ASIN === currentData.ASIN);\n    \n    if (previous) {\n        const oldPrice = parseFloat(previous.json.Current_Price) || 0;\n        let newPrice = currentData.Price;\n        \n        // ⚠️ TEMPORARY FAKE DROP FOR TESTING ⚠️\n        // Force first product to have a 10% drop\n        if (currentData.ASIN === 'B0D78X5CMJ') {\n            newPrice = Math.round(oldPrice * 0.90); // 10% drop\n            console.log(`🧪 TEST MODE: Forcing fake 10% drop for ${currentData.ASIN}`);\n        }\n        \n        console.log(`Comparing ${currentData.ASIN}: Old=${oldPrice}, New=${newPrice}`);\n        \n        // Check if price dropped (new price is lower)\n        if (newPrice < oldPrice && newPrice > 0) {\n            const drop = oldPrice - newPrice;\n            const dropPercent = parseFloat(((drop / oldPrice) * 100).toFixed(2));\n            \n            console.log(`  🔥 PRICE DROP! -₹${drop} (${dropPercent}%)`);\n            \n            priceDrops.push({\n                json: {\n                    Product_Name: currentData.Title,\n                    Product_Link: currentData.Link,\n                    ASIN: currentData.ASIN,\n                    Original_Price: previous.json.Original_Price || oldPrice,\n                    Current_Price: newPrice,\n                    Previous_Price: oldPrice,\n                    Price_Drop_Percent: dropPercent,\n                    Check_Date: new Date().toISOString().split('T')[0],\n                    Check_Time: new Date().toTimeString().split(' ')[0],\n                    Price_History: (previous.json.Price_History || oldPrice) + ',' + newPrice,\n                    Notes: `Price dropped from ₹${oldPrice} to ₹${newPrice}`\n                }\n            });\n        } else {\n            // No drop, but update check time\n            updates.push({\n                json: {\n                    Product_Name: currentData.Title,\n                    Product_Link: currentData.Link,\n                    ASIN: currentData.ASIN,\n                    Original_Price: previous.json.Original_Price,\n                    Current_Price: newPrice,\n                    Previous_Price: oldPrice,\n                    Price_Drop_Percent: 0,\n                    Check_Date: new Date().toISOString().split('T')[0],\n                    Check_Time: new Date().toTimeString().split(' ')[0],\n                    Price_History: previous.json.Price_History,\n                    Notes: 'Price checked - no change'\n                }\n            });\n        }\n    }\n}\n\nconsole.log(`✅ Price drops found: ${priceDrops.length}`);\nconsole.log(`📊 Updates (no drops): ${updates.length}`);\n\n// Return price drops if any, otherwise return updates\nreturn priceDrops.length > 0 ? priceDrops : updates;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1232,
+        96
+      ],
+      "id": "2200dba0-7252-4f1b-bbd5-1d7e023fb192",
+      "name": "Code in JavaScript2",
+      "executeOnce": false,
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=\n{{ $json.prompt }}\n\nconst priceDrops = $input.all();\n\n// Remove duplicates\nconst uniqueDrops = [];\nconst seenASINs = new Set();\n\nfor (const item of priceDrops) {\n    const asin = item.json.ASIN;\n    if (!seenASINs.has(asin)) {\n        seenASINs.add(asin);\n        uniqueDrops.push(item);\n    }\n}\n\n// Format data clearly for AI\nconst formattedData = uniqueDrops.map((item, index) => {\n    const data = item.json;\n    const dropPercent = parseFloat(data.Price_Drop_Percent) || 0;\n    const prevPrice = parseFloat(data.Previous_Price) || 0;\n    const currPrice = parseFloat(data.Current_Price) || 0;\n    const savings = prevPrice - currPrice;\n    \n    // Determine product category/type from title\n    const title = data.Product_Name.toLowerCase();\n    let category = 'general';\n    if (title.includes('phone') || title.includes('mobile') || title.includes('smartphone') || title.includes('redmi') || title.includes('samsung') || title.includes('iphone')) category = 'smartphone';\n    else if (title.includes('laptop') || title.includes('computer') || title.includes('macbook')) category = 'laptop';\n    else if (title.includes('headphone') || title.includes('earphone') || title.includes('earbud') || title.includes('airpod')) category = 'audio';\n    else if (title.includes('watch') || title.includes('band') || title.includes('smartwatch')) category = 'wearable';\n    else if (title.includes('tablet') || title.includes('ipad')) category = 'tablet';\n    \n    return {\n        product_number: index + 1,\n        product_name: data.Product_Name,\n        category: category,\n        previous_price: prevPrice,\n        current_price: currPrice,\n        discount_percent: dropPercent,\n        you_save: savings,\n        asin: data.ASIN\n    };\n});\n\n// Create improved AI prompt with detailed analysis requirements\nlet aiPrompt = `You are an expert Amazon shopping advisor. Analyze these ${formattedData.length} product price drops and provide DETAILED, actionable recommendations.\n\nPRODUCTS WITH PRICE DROPS:\n`;\n\nformattedData.forEach(product => {\n    aiPrompt += `\nProduct ${product.product_number}: ${product.product_name}\nCategory: ${product.category}\nPrice: ₹${product.previous_price.toLocaleString()} → ₹${product.current_price.toLocaleString()}\nDiscount: ${product.discount_percent.toFixed(1)}% OFF (Save ₹${product.you_save.toLocaleString()})\nASIN: ${product.asin}\n`;\n});\n\naiPrompt += `\n\nCRITICAL INSTRUCTIONS - YOU MUST FOLLOW THIS FORMAT EXACTLY:\n\nFor EACH product, you MUST provide analysis in this EXACT format with 4 bullet points:\n\nProduct [number]: [VERDICT]\n• [Point 1: Value assessment - is discount good?]\n• [Point 2: Product features and quality for price]\n• [Point 3: Timing and urgency - buy now or wait?]\n• [Point 4: Final recommendation with clear action]\n\nVERDICT OPTIONS (choose ONE based on discount %):\n- 🔥 BUY NOW (for 15%+ discounts)\n- ⭐ GOOD DEAL (for 10-15% discounts)\n- ⏳ WAIT (for <10% discounts)\n\nYOU MUST USE BULLET POINTS (•) - DO NOT SKIP THE BULLETS!\n\nMANDATORY EXAMPLE FORMAT TO FOLLOW:\n\nProduct 1: 🔥 BUY NOW\n• Outstanding 18% discount makes this the best price in 3 months\n• Excellent value smartphone with 108MP camera and 5G connectivity\n• Limited stock alert - prices bounce back within 2-3 days typically\n• Strong recommendation: Buy immediately if you need budget 5G phone\n\nProduct 2: ⏳ WAIT\n• Only 7% discount is not compelling for this price category\n• Better alternatives available or wait for upcoming festive sales\n• Historical data shows 15-20% discounts during festive season\n• Recommendation: Wait 2-3 weeks unless you have urgent need\n\nIMPORTANT RULES:\n- ALWAYS use exactly 4 bullet points (•) per product\n- Each point should be 12-18 words maximum\n- Be specific, decisive, and actionable\n- Focus on value, features, timing, and clear recommendation`;\n\nreturn [{\n    json: {\n        prompt: aiPrompt,\n        products: formattedData\n    }\n}];",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        2224,
+        -64
+      ],
+      "id": "d79a41cb-7ec9-4649-a116-7569ca1f90dc",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        224
+      ],
+      "id": "d0412c69-83a4-4279-954a-341e57bf0119",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "kwDNiaJczv7JYkdt",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a61d17ba-a10d-49fc-9326-689578bc8f59",
+              "leftValue": "={{ $json.Price_Drop_Percent }}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "gt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1440,
+        96
+      ],
+      "id": "b1fe3ecb-3e08-40ff-9340-1ca6d32f52ef",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q",
+          "mode": "list",
+          "cachedResultName": "Wishlist Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [
+            "ASIN"
+          ],
+          "schema": [
+            {
+              "id": "Product_Name",
+              "displayName": "Product_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product_Link",
+              "displayName": "Product_Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ASIN",
+              "displayName": "ASIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Original_Price",
+              "displayName": "Original_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current_Price",
+              "displayName": "Current_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Previous_Price",
+              "displayName": "Previous_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_Drop_Percent",
+              "displayName": "Price_Drop_Percent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check_Date",
+              "displayName": "Check_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check_Time",
+              "displayName": "Check_Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_History",
+              "displayName": "Price_History",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1728,
+        -64
+      ],
+      "id": "54cfc9c1-5e84-4c4b-b28e-50322272cbbb",
+      "name": "Append or update row in sheet1",
+      "executeOnce": false,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Y5BPKRHEnHDqm6oX",
+          "name": "Google Sheets account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get AI response\nconst aiResponse = $input.first().json;\n\n// Get price drop data from Append or update row in sheet1\nconst priceDropData = $('Append or update row in sheet1').all();\n\nconsole.log('AI Response:', aiResponse);\nconsole.log('Price drop data items:', priceDropData.length);\n\n// Remove duplicates by ASIN\nconst uniqueData = [];\nconst seenASINs = new Set();\n\nfor (const item of priceDropData) {\n    const asin = item.json.ASIN;\n    if (!seenASINs.has(asin)) {\n        seenASINs.add(asin);\n        uniqueData.push(item);\n    }\n}\n\nconst products = uniqueData.map(item => {\n    const data = item.json;\n    const dropPercent = parseFloat(data.Price_Drop_Percent) || 0;\n    const prevPrice = parseFloat(data.Previous_Price) || 0;\n    const currPrice = parseFloat(data.Current_Price) || 0;\n    \n    // Create simple bar chart visualization\n    const barLength = Math.min(Math.round(dropPercent), 50);\n    const chart = '█'.repeat(barLength) + ' ' + dropPercent.toFixed(2) + '%';\n    \n    // Calculate savings\n    const savings = prevPrice - currPrice;\n    \n    // Get price history (this should be a comma-separated string from Google Sheets)\n    const priceHistory = data.Price_History || currPrice.toString();\n    \n    return {\n        product: data.Product_Name.substring(0, 80),\n        prevPrice: prevPrice,\n        currPrice: currPrice,\n        dropPercent: dropPercent,\n        savings: savings,\n        chart: chart,\n        link: data.Product_Link,\n        asin: data.ASIN,\n        priceHistory: priceHistory  // Add price history\n    };\n});\n\nreturn [{\n    json: {\n        products: products,\n        aiAnalysis: aiResponse,\n        totalDrops: products.length,\n        date: new Date().toISOString().split('T')[0],\n        time: new Date().toTimeString().split(' ')[0]\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        -64
+      ],
+      "id": "cd0b0cc7-57c0-4d2d-8b77-60516e3e4a59",
+      "name": "generate chat data"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get input data properly\nconst inputData = $input.first().json;\nconst products = inputData.products || [];\nconst aiText = typeof inputData.aiAnalysis === 'string' ? inputData.aiAnalysis : \n               (inputData.aiAnalysis?.output || JSON.stringify(inputData.aiAnalysis));\n\nconsole.log('Products received:', products.length);\nconsole.log('AI Text:', aiText);\n\n// Parse AI recommendations with bullet points\nfunction parseAIRecommendations(aiText) {\n    const recommendations = {};\n    const lines = aiText.split('\\n').filter(line => line.trim());\n    \n    let currentProduct = null;\n    let currentVerdict = '';\n    let currentPoints = [];\n    \n    for (let i = 0; i < lines.length; i++) {\n        const line = lines[i].trim();\n        \n        // Match product header with verdict\n        const productMatch = line.match(/Product\\s+(\\d+):\\s*([🔥⭐⏳]?\\s*[A-Z\\s]+)/i);\n        if (productMatch) {\n            // Save previous product if exists\n            if (currentProduct) {\n                recommendations[currentProduct] = {\n                    verdict: currentVerdict,\n                    points: currentPoints\n                };\n            }\n            \n            // Start new product\n            currentProduct = productMatch[1];\n            currentVerdict = productMatch[2].trim();\n            currentPoints = [];\n        }\n        // Match bullet points\n        else if (line.startsWith('•') || line.startsWith('-') || line.startsWith('*')) {\n            const point = line.replace(/^[•\\-*]\\s*/, '').trim();\n            if (point) {\n                currentPoints.push(point);\n            }\n        }\n        // Sometimes AI puts points without bullets\n        else if (currentProduct && line.length > 20 && !line.includes('Product')) {\n            currentPoints.push(line);\n        }\n    }\n    \n    // Save last product\n    if (currentProduct) {\n        recommendations[currentProduct] = {\n            verdict: currentVerdict,\n            points: currentPoints\n        };\n    }\n    \n    return recommendations;\n}\n\n// Get deal quality badge\nfunction getDealQuality(dropPercent) {\n    if (dropPercent >= 20) return { emoji: '🔥', text: 'AMAZING DEAL', color: '#ff4444', bgColor: '#ffebee' };\n    if (dropPercent >= 10) return { emoji: '⭐', text: 'GREAT DEAL', color: '#ff9800', bgColor: '#fff3e0' };\n    return { emoji: '💚', text: 'GOOD DEAL', color: '#4caf50', bgColor: '#e8f5e9' };\n}\n\n// Create price history sparkline\nfunction createSparkline(priceHistory, currentPrice) {\n    if (!priceHistory || priceHistory === currentPrice) {\n        return '<span style=\"color:#999;\">📊 First Check</span>';\n    }\n    \n    const prices = priceHistory.toString().split(',').map(p => parseFloat(p)).filter(p => !isNaN(p));\n    if (prices.length < 2) {\n        return '<span style=\"color:#999;\">📊 First Check</span>';\n    }\n    \n    const max = Math.max(...prices);\n    const min = Math.min(...prices);\n    const range = max - min || 1;\n    \n    // Create simple text sparkline\n    let sparkline = '📊 ';\n    for (let i = 0; i < prices.length; i++) {\n        const normalized = (prices[i] - min) / range;\n        if (normalized > 0.66) sparkline += '▁';\n        else if (normalized > 0.33) sparkline += '▃';\n        else sparkline += '▅';\n    }\n    \n    // Add trend indicator\n    const firstPrice = prices[0];\n    const lastPrice = prices[prices.length - 1];\n    const trend = lastPrice < firstPrice ? '📉 Dropping' : lastPrice > firstPrice ? '📈 Rising' : '➡️ Stable';\n    \n    return `<span style=\"color:#666; font-family:monospace;\">${sparkline} ${trend}</span>`;\n}\n\n// Calculate summary stats (NO avg discount)\nconst totalSavings = products.reduce((sum, p) => sum + (p.savings || 0), 0);\nconst maxDiscount = Math.max(...products.map(p => p.dropPercent));\nconst bestDeal = products.reduce((best, p) => p.dropPercent > best.dropPercent ? p : best, products[0]);\n\n// Parse AI recommendations\nconst aiRecommendations = parseAIRecommendations(aiText);\n\nconsole.log('AI Recommendations parsed:', Object.keys(aiRecommendations).length);\n\n// Build beautiful HTML email\nlet emailHTML = `\n<!DOCTYPE html>\n<html>\n<head>\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n<style>\n  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 20px; }\n  .container { max-width: 650px; margin: 0 auto; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }\n  .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 25px; }\n  .header h1 { margin: 0; font-size: 32px; font-weight: 700; }\n  .header p { margin: 10px 0 0 0; opacity: 0.95; font-size: 16px; }\n  \n  .summary-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 25px; }\n  .summary-card { background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%); padding: 20px; border-radius: 10px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }\n  .summary-card.best { background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); }\n  .summary-value { font-size: 32px; font-weight: bold; color: #2e7d32; margin: 5px 0; }\n  .summary-card.best .summary-value { color: #e65100; }\n  .summary-label { font-size: 13px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }\n  \n  .product-card { border: 2px solid #e0e0e0; padding: 25px; margin: 20px 0; border-radius: 12px; background: #fafafa; position: relative; overflow: hidden; }\n  .product-card::before { content: ''; position: absolute; top: 0; left: 0; width: 5px; height: 100%; background: linear-gradient(180deg, #667eea 0%, #764ba2 100%); }\n  \n  .product-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; gap: 15px; }\n  .product-number { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 18px; flex-shrink: 0; }\n  .product-title { font-size: 18px; font-weight: 600; color: #333; margin: 0; line-height: 1.4; flex: 1; }\n  \n  .deal-quality-badge { background: var(--bg-color); color: var(--text-color); padding: 10px 20px; border-radius: 25px; font-size: 14px; font-weight: bold; text-align: center; margin: 15px 0; border: 2px solid var(--text-color); }\n  \n  .price-section { background: white; padding: 20px; border-radius: 10px; margin: 15px 0; }\n  .price-row { display: flex; align-items: center; justify-content: center; gap: 20px; flex-wrap: wrap; margin-bottom: 15px; }\n  .old-price { text-decoration: line-through; color: #999; font-size: 22px; font-weight: 500; }\n  .arrow { font-size: 28px; color: #ff4444; }\n  .new-price { color: #00bb00; font-size: 36px; font-weight: bold; }\n  .discount-badge { background: #ff4444; color: white; padding: 8px 16px; border-radius: 20px; font-size: 18px; font-weight: bold; }\n  .savings-banner { background: linear-gradient(135deg, #fff3cd 0%, #ffe082 100%); color: #795548; padding: 12px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 16px; margin-top: 15px; }\n  \n  .chart-section { background: #f8f9fa; padding: 18px; border-radius: 10px; margin: 15px 0; border-left: 4px solid #00bb00; }\n  .chart-title { font-weight: bold; color: #333; margin-bottom: 10px; font-size: 14px; }\n  .chart-bar { color: #00bb00; font-size: 18px; font-weight: bold; letter-spacing: 1px; font-family: monospace; }\n  .price-history { margin-top: 12px; padding-top: 12px; border-top: 1px solid #ddd; font-size: 14px; color: #666; }\n  \n  .ai-section { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 30%); padding: 25px; border-radius: 12px; margin: 20px 0; border-left: 5px solid #2196f3; box-shadow: 0 2px 8px rgba(33,150,243,0.2); }\n  .ai-header { display: flex; align-items: center; gap: 12px; margin-bottom: 15px; }\n  .ai-icon { font-size: 28px; }\n  .ai-title { font-weight: bold; color: #1565c0; font-size: 18px; margin: 0; }\n  .ai-verdict { display: inline-block; background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%); color: white; padding: 10px 20px; border-radius: 20px; font-size: 16px; font-weight: bold; margin-bottom: 15px; box-shadow: 0 2px 6px rgba(25,118,210,0.3); }\n  .ai-verdict.buy { background: linear-gradient(135deg, #00bb00 0%, #009900 100%); }\n  .ai-verdict.wait { background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%); }\n  .ai-points { margin: 15px 0; }\n  .ai-point { display: flex; gap: 12px; margin: 12px 0; padding: 12px; background: white; border-radius: 8px; line-height: 1.6; font-size: 15px; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }\n  .ai-point-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }\n  .ai-point-text { flex: 1; }\n  \n  .buy-button { background: linear-gradient(135deg, #00bb00 0%, #009900 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 10px; display: inline-block; margin-top: 20px; font-weight: bold; font-size: 16px; box-shadow: 0 4px 6px rgba(0,187,0,0.3); transition: transform 0.2s; }\n  .buy-button:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,187,0,0.4); }\n  \n  .meta-info { font-size: 12px; color: #999; margin-top: 15px; padding-top: 15px; border-top: 1px solid #e0e0e0; }\n  \n  .footer { text-align: center; color: #999; font-size: 13px; margin-top: 35px; padding-top: 25px; border-top: 2px solid #e0e0e0; }\n  .footer-highlight { color: #667eea; font-weight: bold; }\n  .footer-link { color: #667eea; text-decoration: none; font-weight: 600; }\n  .footer-link:hover { text-decoration: underline; }\n  \n  @media only screen and (max-width: 600px) {\n    .container { padding: 15px; }\n    .header h1 { font-size: 24px; }\n    .summary-grid { grid-template-columns: 1fr; }\n    .price-row { flex-direction: column; gap: 10px; }\n    .new-price { font-size: 28px; }\n    .product-title { font-size: 16px; }\n    .ai-point { flex-direction: column; gap: 8px; }\n  }\n</style>\n</head>\n<body>\n<div class=\"container\">\n  <div class=\"header\">\n    <h1>🔥 Price Drop Alert!</h1>\n    <p>AI-Powered Amazon Wishlist Tracker</p>\n    <p style=\"font-size:14px; opacity:0.9; margin-top:10px;\">📅 ${inputData.date} • 🕒 ${inputData.time}</p>\n  </div>\n  \n  <div class=\"summary-grid\">\n    <div class=\"summary-card\">\n      <div class=\"summary-label\">💰 Total Savings</div>\n      <div class=\"summary-value\">₹${totalSavings.toLocaleString()}</div>\n    </div>\n    <div class=\"summary-card best\">\n      <div class=\"summary-label\">🎯 Best Discount</div>\n      <div class=\"summary-value\">${maxDiscount.toFixed(1)}%</div>\n    </div>\n  </div>\n  \n  <div style=\"background:#f0f0f0; padding:15px; border-radius:8px; text-align:center; margin-bottom:25px;\">\n    <strong>🏆 Best Deal:</strong> ${bestDeal.product.substring(0, 60)}... <span style=\"color:#00bb00; font-weight:bold;\">(${bestDeal.dropPercent.toFixed(1)}% OFF)</span>\n  </div>\n`;\n\n// Add each product\nproducts.forEach((product, index) => {\n    const savings = product.savings || (product.prevPrice - product.currPrice);\n    const dealQuality = getDealQuality(product.dropPercent);\n    const sparkline = createSparkline(product.priceHistory, product.currPrice);\n    const aiRec = aiRecommendations[(index + 1).toString()] || { \n        verdict: 'RECOMMENDED', \n        points: [\n            'Good value for the discount offered at this price point',\n            'Consider purchasing if this product matches your requirements',\n            'Price tracking shows favorable downward trend',\n            'Recommended: Review specs and compare with alternatives before buying'\n        ]\n    };\n    \n    // Determine verdict class and emoji\n    let verdictClass = '';\n    let verdictEmoji = '⭐';\n    const verdictLower = aiRec.verdict.toLowerCase();\n    if (verdictLower.includes('buy') || verdictLower.includes('🔥')) {\n        verdictClass = 'buy';\n        verdictEmoji = '🔥';\n    } else if (verdictLower.includes('wait') || verdictLower.includes('⏳')) {\n        verdictClass = 'wait';\n        verdictEmoji = '⏳';\n    }\n    \n    // Point icons rotation\n    const pointIcons = ['✅', '💡', '⏰', '🎯', '📌', '🔍'];\n    \n    emailHTML += `\n  <div class=\"product-card\">\n    <div class=\"product-header\">\n      <div class=\"product-number\">${index + 1}</div>\n      <div class=\"product-title\">${product.product}</div>\n    </div>\n    \n    <div class=\"deal-quality-badge\" style=\"--bg-color: ${dealQuality.bgColor}; --text-color: ${dealQuality.color};\">\n      ${dealQuality.emoji} ${dealQuality.text}\n    </div>\n    \n    <div class=\"price-section\">\n      <div class=\"price-row\">\n        <span class=\"old-price\">₹${product.prevPrice.toLocaleString()}</span>\n        <span class=\"arrow\">→</span>\n        <span class=\"new-price\">₹${product.currPrice.toLocaleString()}</span>\n        <span class=\"discount-badge\">${product.dropPercent.toFixed(1)}% OFF</span>\n      </div>\n      <div class=\"savings-banner\">\n        💰 You Save: ₹${savings.toLocaleString()}\n      </div>\n    </div>\n    \n    <div class=\"chart-section\">\n      <div class=\"chart-title\">📈 Price Drop Visualization</div>\n      <div class=\"chart-bar\">${product.chart}</div>\n      <div class=\"price-history\">\n        ${sparkline}\n      </div>\n    </div>\n    \n    <div class=\"ai-section\">\n      <div class=\"ai-header\">\n        <span class=\"ai-icon\">🤖</span>\n        <h3 class=\"ai-title\">AI Analysis</h3>\n      </div>\n      <div class=\"ai-verdict ${verdictClass}\">${verdictEmoji} ${aiRec.verdict}</div>\n      <div class=\"ai-points\">\n`;\n    \n    // Add each AI point with rotating icons\n    aiRec.points.forEach((point, idx) => {\n        const icon = pointIcons[idx % pointIcons.length];\n        emailHTML += `\n        <div class=\"ai-point\">\n          <span class=\"ai-point-icon\">${icon}</span>\n          <span class=\"ai-point-text\">${point}</span>\n        </div>\n`;\n    });\n    \n    emailHTML += `\n      </div>\n    </div>\n    \n    <div style=\"text-align:center;\">\n      <a href=\"${product.link}\" class=\"buy-button\">🛒 View on Amazon →</a>\n    </div>\n    \n    <div class=\"meta-info\">\n      <strong>ASIN:</strong> ${product.asin} • <strong>Checked:</strong> ${inputData.date} ${inputData.time}\n    </div>\n  </div>\n`;\n});\n\nemailHTML += `\n  <div class=\"footer\">\n    <p><span class=\"footer-highlight\">🔔 Automated Amazon Price Monitor</span></p>\n    <p>Powered by n8n workflow automation • AI analysis by Google Gemini</p>\n    <p style=\"margin-top:15px;\">\n      <a href=\"https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q\" class=\"footer-link\">📊 View Full Price History →</a>\n    </p>\n    <p style=\"margin-top:10px; font-size:11px;\">\n      Checks run every 6 hours • ${products.length} product${products.length !== 1 ? 's' : ''} tracked\n    </p>\n  </div>\n</div>\n</body>\n</html>\n`;\n\nreturn [{\n    json: {\n        to: 'ande.samhitha1826@gmail.com',\n        subject: `🔥 ${products.length} Amazon Price Drop${products.length !== 1 ? 's' : ''}! Save ₹${totalSavings.toLocaleString()} (Best: ${maxDiscount.toFixed(1)}% OFF)`,\n        html: emailHTML\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2720,
+        -64
+      ],
+      "id": "677d749e-ee46-4459-b68a-e5bfb73a0635",
+      "name": "format email"
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $json.to }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        2912,
+        -64
+      ],
+      "id": "eb294b46-2767-4e44-98dd-d4cb6a251700",
+      "name": "Send a message",
+      "webhookId": "63c5b086-e4b3-4b75-90fb-798e7eb00a2d",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "9ZJv4Yty3YC2pxtX",
+          "name": "Gmail account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const priceDrops = $input.all();\n\n// Remove duplicates\nconst uniqueDrops = [];\nconst seenASINs = new Set();\n\nfor (const item of priceDrops) {\n    const asin = item.json.ASIN;\n    if (!seenASINs.has(asin)) {\n        seenASINs.add(asin);\n        uniqueDrops.push(item);\n    }\n}\n\n// Format data clearly for AI\nconst formattedData = uniqueDrops.map((item, index) => {\n    const data = item.json;\n    const dropPercent = parseFloat(data.Price_Drop_Percent) || 0;\n    const prevPrice = parseFloat(data.Previous_Price) || 0;\n    const currPrice = parseFloat(data.Current_Price) || 0;\n    const savings = prevPrice - currPrice;\n    \n    // Determine product category/type from title\n    const title = data.Product_Name.toLowerCase();\n    let category = 'general';\n    if (title.includes('phone') || title.includes('mobile') || title.includes('smartphone') || title.includes('redmi') || title.includes('samsung') || title.includes('iphone')) category = 'smartphone';\n    else if (title.includes('laptop') || title.includes('computer') || title.includes('macbook')) category = 'laptop';\n    else if (title.includes('headphone') || title.includes('earphone') || title.includes('earbud') || title.includes('airpod')) category = 'audio';\n    else if (title.includes('watch') || title.includes('band') || title.includes('smartwatch')) category = 'wearable';\n    else if (title.includes('tablet') || title.includes('ipad')) category = 'tablet';\n    \n    return {\n        product_number: index + 1,\n        product_name: data.Product_Name,\n        category: category,\n        previous_price: prevPrice,\n        current_price: currPrice,\n        discount_percent: dropPercent,\n        you_save: savings,\n        asin: data.ASIN\n    };\n});\n\n// Create improved AI prompt with detailed analysis requirements\nlet aiPrompt = `You are an expert Amazon shopping advisor. Analyze these ${formattedData.length} product price drops and provide DETAILED, actionable recommendations.\n\nPRODUCTS WITH PRICE DROPS:\n`;\n\nformattedData.forEach(product => {\n    aiPrompt += `\nProduct ${product.product_number}: ${product.product_name}\nCategory: ${product.category}\nPrice: ₹${product.previous_price.toLocaleString()} → ₹${product.current_price.toLocaleString()}\nDiscount: ${product.discount_percent.toFixed(1)}% OFF (Save ₹${product.you_save.toLocaleString()})\nASIN: ${product.asin}\n`;\n});\n\naiPrompt += `\n\nCRITICAL INSTRUCTIONS - FOLLOW EXACTLY:\n\nFor EACH product, provide analysis in this EXACT format:\n\nProduct [number]: [VERDICT]\n• [Point 1 about value/pricing]\n• [Point 2 about features/specs]  \n• [Point 3 about timing/urgency]\n• [Final recommendation with action]\n\nVERDICT OPTIONS (choose ONE):\n- 🔥 BUY NOW (for 15%+ discounts or exceptional value)\n- ⭐ GOOD DEAL (for 10-15% discounts worth considering)\n- ⏳ WAIT (for <10% discounts or overpriced items)\n\nPOINTS MUST INCLUDE:\n✅ Value assessment (is discount good for this category?)\n✅ Product quality/features for the price\n✅ Timing advice (buy now vs wait for better deal)\n✅ Clear action (buy immediately, consider carefully, or skip)\n\nEXAMPLE OUTPUT:\n\nProduct 1: 🔥 BUY NOW\n• Outstanding 18% discount - best price in 3 months for this model\n• Excellent value for entry-level smartphone with 108MP camera and 5G\n• Limited stock alert - prices typically bounce back within days\n• Strong recommendation: Purchase immediately if you need a budget 5G phone\n\nProduct 2: ⏳ WAIT  \n• Only 7% discount - not compelling for this price range\n• Better alternatives available at similar price points\n• Festive sales coming soon may offer 15-20% discounts\n• Recommendation: Hold off unless urgent need, wait 2-3 weeks for better deals\n\nKeep each point concise (15-20 words max). Be specific and decisive. Focus on actionable insights.`;\n\nreturn [{\n    json: {\n        prompt: aiPrompt,\n        products: formattedData\n    }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2016,
+        -16
+      ],
+      "id": "4aeace93-320a-4f82-b7f1-a16101895059",
+      "name": "prepare AI input"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q",
+          "mode": "list",
+          "cachedResultName": "Wishlist Tracker",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10joDgGbPTa8QMBkjRm3L5nDJwVy05MOvaEZGc28ro1Q/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Product_Name",
+              "displayName": "Product_Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Product_Link",
+              "displayName": "Product_Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "ASIN",
+              "displayName": "ASIN",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Original_Price",
+              "displayName": "Original_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Current_Price",
+              "displayName": "Current_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Previous_Price",
+              "displayName": "Previous_Price",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_Drop_Percent",
+              "displayName": "Price_Drop_Percent",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check_Date",
+              "displayName": "Check_Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Check_Time",
+              "displayName": "Check_Time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Price_History",
+              "displayName": "Price_History",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Notes",
+              "displayName": "Notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1648,
+        192
+      ],
+      "id": "fecc39f9-2733-4771-a031-f834433958c5",
+      "name": "Append or update row in sheet2",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Y5BPKRHEnHDqm6oX",
+          "name": "Google Sheets account 2"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Get row(s) in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get row(s) in sheet": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code in JavaScript2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript1": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript2": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet1",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Append or update row in sheet2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append or update row in sheet1": {
+      "main": [
+        [
+          {
+            "node": "prepare AI input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "generate chat data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "generate chat data": {
+      "main": [
+        [
+          {
+            "node": "format email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "format email": {
+      "main": [
+        [
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "prepare AI input": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ed0a827e-2f94-447b-88df-1872105af25f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "c0c2641a3b0fa9036bce52fc263ea0b48a0894444835a72e46573207cfe6f2f0"
+  },
+  "id": "XeqxuX9OkfyRjYVm",
+  "tags": []
+}
